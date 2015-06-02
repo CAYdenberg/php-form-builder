@@ -541,9 +541,12 @@ class Input extends BaseClass {
 		$value = isset($_REQUEST[$this->slug]) ? $_REQUEST[$this->slug] : '';
 
 		foreach ($this->settings['validators'] as $validator) {
-			$check = Validators::get( $validator );
-			if ( ! $check ) throw new Exception('No validator with key '.$validator. ' set');
-			if ( ! $check($value) ) {
+			$args = explode('-', $validator);
+			$validator_name = array_shift( $args );
+
+			$function = Validators::get( $validator_name );
+			if ( ! $function ) throw new Exception('No validator with key '.$validator. ' set');
+			if ( ! $function($value, $args) ) {
 				//set to false and stop checking
 				$this->valid = FALSE;
 				$this->value = NULL;
@@ -601,26 +604,26 @@ class Validators extends BaseClass {
 }
 
 Validators::add('required', 'This field is required',
-	function( $value ) {
+	function( $value, $args ) {
 		if ( $value !== '' ) return TRUE;
 		else return FALSE;
 	}
 );
 
 Validators::add('email', 'Please enter a valid email address',
-	function ( $value ) {
+	function ( $value, $args ) {
 		return (filter_var($value, FILTER_VALIDATE_EMAIL) ? TRUE : FALSE);
 	}
 );
 
 Validators::add('url', 'Please enter a valid URL',
-	function ( $value ) {
+	function ( $value, $args ) {
 		return filter_var($value, FILTER_VALIDATE_URL) ? TRUE : FALSE;
 	}
 );
 
 Validators::add('number', 'Please enter a number',
-	function ( $value ) {
+	function ( $value, $args ) {
 		if (
 			filter_var($value, FILTER_VALIDATE_INT) ||
 			filter_var($value, FILTER_VALIDATE_FLOAT)
