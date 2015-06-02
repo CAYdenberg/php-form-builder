@@ -113,74 +113,6 @@ class PhpFormBuilder extends BaseClass {
 
 	}
 
-
-	// /**
-	//  * Validate and set form
-	//  *
-	//  * @param string        $key A valid key; switch statement ensures validity
-	//  * @param string | bool $this->settings A valid value; validated for each key
-	//  *
-	//  * @return bool
-	//  */
-	// function set_att( $key, $this->settings ) {
-	//
-	// 	switch ( $key ) :
-	//
-	// 		case 'action':
-	// 			break;
-	//
-	// 		case 'method':
-	// 			if ( ! in_array( $this->settings, array( 'post', 'get' ) ) ) {
-	// 				return false;
-	// 			}
-	// 			break;
-	//
-	// 		case 'enctype':
-	// 			if ( ! in_array( $this->settings, array( 'application/x-www-form-urlencoded', 'multipart/form-data' ) ) ) {
-	// 				return false;
-	// 			}
-	// 			break;
-	//
-	// 		case 'markup':
-	// 			if ( ! in_array( $this->settings, array( 'html', 'xhtml' ) ) ) {
-	// 				return false;
-	// 			}
-	// 			break;
-	//
-	// 		case 'class':
-	// 		case 'id':
-	// 			if ( ! $this->_check_valid_attr( $this->settings ) ) {
-	// 				return false;
-	// 			}
-	// 			break;
-	//
-	// 		case 'novalidate':
-	// 		case 'add_honeypot':
-	// 		case 'form_element':
-	// 		case 'bootstrap':
-	// 		case 'add_submit':
-	// 			if ( ! is_bool( $this->settings ) ) {
-	// 				return false;
-	// 			}
-	// 			break;
-	//
-	// 		case 'add_nonce':
-	// 			if ( ! is_string( $this->settings ) && ! is_bool( $this->settings ) ) {
-	// 				return false;
-	// 			}
-	// 			break;
-	//
-	// 		default:
-	// 			return false;
-	//
-	// 	endswitch;
-	//
-	// 	$this->settings[ $key ] = $this->settings;
-	//
-	// 	return true;
-	//
-	// }
-
 	/**
 	 * Add an input field to the form for outputting later
 	 *
@@ -195,7 +127,7 @@ class PhpFormBuilder extends BaseClass {
 			$input->set_att( 'wrap_tag', 'div' );
 			$input->set_att( 'wrap_class', 'form-group' );
 		}
-		$this->inputs[] = $input;
+		$this->inputs[$input->get_slug()] = $input;
 	}
 
 	/**
@@ -310,6 +242,23 @@ class PhpFormBuilder extends BaseClass {
 		return  $valid;
 	}
 
+	public function get_safe_value( $key ) {
+		if ( isset($this->inputs[$key] ) ) {
+			return $this->inputs[$key]->get_value();
+		} else {
+			throw new Exception('Field with key '. $key . 'not found');
+			return;
+		}
+	}
+
+	public function get_safe_values() {
+		$values = array();
+		foreach ( $this->inputs as $slug => $input ) {
+			$values[$slug] = $this->get_safe_value($slug);
+		}
+		return $values;
+	}
+
 }
 
 class Input extends BaseClass {
@@ -359,7 +308,7 @@ class Input extends BaseClass {
 		$this->create_settings( $args );
 
 		//attach validators
-		$this->attach_validators( $this->args['type'] );
+		$this->attach_validators();
 
 		//replace numerically indexed options with a slug
 		$options = array();
@@ -368,6 +317,24 @@ class Input extends BaseClass {
 			else $options[$key] = $option;
 		}
 		$this->settings['options'] = $options;
+
+		// Automatic population of values using $_REQUEST data
+		if ( $this->settings['request_populate'] && isset( $_REQUEST[ $this->settings['name'] ] ) ) {
+
+			// Can this field be populated directly?
+			if ( ! in_array( $this->settings['type'], array( 'html', 'title', 'radio', 'checkbox', 'select', 'submit' ) ) ) {
+				$this->settings['value'] = $_REQUEST[ $this->settings['name'] ];
+			}
+		}
+
+		// Automatic population for checkboxes and radios
+		if (
+			$this->settings['request_populate'] &&
+			( $this->settings['type'] == 'radio' || $this->settings['type'] == 'checkbox' ) &&
+			empty( $this->settings['options'] )
+		) {
+			$this->settings['checked'] = isset( $_REQUEST[ $this->settings['name'] ] ) ? true : $this->settings['checked'];
+		}
 	}
 
 
@@ -391,24 +358,6 @@ class Input extends BaseClass {
 	private function build_field() {
 
 		$min_max_range = $element = $end = $attr = $field = '';
-
-		// Automatic population of values using $_REQUEST data
-		if ( $this->settings['request_populate'] && isset( $_REQUEST[ $this->settings['name'] ] ) ) {
-
-			// Can this field be populated directly?
-			if ( ! in_array( $this->settings['type'], array( 'html', 'title', 'radio', 'checkbox', 'select', 'submit' ) ) ) {
-				$this->settings['value'] = $_REQUEST[ $this->settings['name'] ];
-			}
-		}
-
-		// Automatic population for checkboxes and radios
-		if (
-			$this->settings['request_populate'] &&
-			( $this->settings['type'] == 'radio' || $this->settings['type'] == 'checkbox' ) &&
-			empty( $this->settings['options'] )
-		) {
-			$this->settings['checked'] = isset( $_REQUEST[ $this->settings['name'] ] ) ? true : $this->settings['checked'];
-		}
 
 		switch ( $this->settings['type'] ) {
 
@@ -476,10 +425,10 @@ class Input extends BaseClass {
 							$this->settings['request_populate'] &&
 
 							// Do we have $_REQUEST data to use?
-							isset( $_REQUEST ) &&
+							isset( $_REQUEST[ $this->settings['name'] ] ) &&
 
 							// Is the selected item(s) in the $_REQUEST data?
-							in_array( $key, $_REQUEST )
+							in_array( $key, $_REQUEST[ $this->settings['name'] ] )
 						) {
 							$end .= ' checked';
 						}
@@ -549,7 +498,7 @@ class Input extends BaseClass {
 
 		if ( $this->settings['type'] != 'hidden' && $this->settings['type'] != 'html' ) {
 
-			$inner = $this->build_label() . $this->build_field(). $this->build_errors();
+			$inner = $this->build_label() . $this->build_field() . $this->build_errors();
 
 			$wrap_before = $this->settings['before_html'];
 			if ( ! empty( $this->settings['wrap_tag'] ) ) {
@@ -574,64 +523,108 @@ class Input extends BaseClass {
 	}
 
 
-	private function attach_validators( $type ) {
+	private function attach_validators() {
 
-		// $validators = array(
-		// 	'email' => 'email',
-		// 	'url' => 'url',
-		// 	'number' => 'number'
-		// );
-		// if ( isset($validators[$type]) ) {
-		// 	$this->add_att($validators, 'AutoValidators::'.$validators[$type]);
-		// 	return TRUE;
-		// } else {
-		// 	return FALSE;
-		// }
+		//place field-type-specific validators
+		$type_validators = array('email', 'url', 'number');
+		if ( in_array($this->settings['type'], $type_validators ) )
+			array_unshift($this->settings['validators'], $this->settings['type']);
 
-		return;
+		//place required validator
+		if ( $this->settings['required'] )
+			array_unshift($this->settings['validators'], 'required');
 
 	}
 
 	public function validate() {
-		// $value = isset($_REQUEST[$this->slug]) ? $_REQUEST[$this->slug] : '';
-		//
-		// if ( $this->settings['required'] && $value === '') {
-		// 	$this->message = 'This field is required';
-		// 	$this->valid = FALSE;
-		// 	return FALSE;
-		// } else if ( count($this->settings['validators']) ) {
-		// 	foreach ($this->settings['validators'] as $validator) {
-		// 		$message = call_user_func($validator, $value);
-		// 		if ( $message !== '' ) {
-		// 			$this->message = $message;
-		// 			$this->valid = FALSE;
-		// 			return FALSE;
-		// 		}
-		// 	}
-		// }
-		// if ( $this->settings['type'] === 'radio' || $this->settings['type'] === 'select' ) {
-		// 	if ( ! array_key_exists($value, $this->settings['options'] ) ) {
-		// 		$this->message = 'You entered an invalid option';
-		// 		$this->valid = FALSE;
-		// 		return FALSE;
-		// 	}
-		// }
-		//
-		// $this->valid = TRUE;
+
+		$value = isset($_REQUEST[$this->slug]) ? $_REQUEST[$this->slug] : '';
+
+		foreach ($this->settings['validators'] as $validator) {
+			$check = Validators::get( $validator );
+			if ( ! $check ) throw new Exception('No validator with key '.$validator. ' set');
+			if ( ! $check($value) ) {
+				//set to false and stop checking
+				$this->valid = FALSE;
+				$this->value = NULL;
+				$this->message = Validators::get_message( $validator );
+				return FALSE;
+			}
+		}
+
+		//everything OK. Set valid to true.
+		$this->valid = TRUE;
+		$this->value = $value;
 		return TRUE;
-	}
-}
-
-
-class Validators {
-	protected $validator = array();
-
-	public static function add_validator( $key, $function, $message ) {
 
 	}
 
-	public static function get_validator( $key ) {
-		return $this->validators[$key]['function'];
+	public function get_slug() {
+		return $this->slug;
+	}
+
+	public function get_value() {
+		return $this->value;
 	}
 
 }
+
+
+class Validators extends BaseClass {
+	private static $validators;
+
+	static function add( $key, $message, $function ) {
+		if ( isset(self::$validators[$key]) ) return FALSE;
+		self::$validators[$key]['function'] = $function;
+		self::$validators[$key]['message'] = $message;
+	}
+
+	public static function update_message( $key, $message ) {
+		self::$validators[$key]['message'] = $message;
+	}
+
+	public static function update_function( $key, $function ) {
+		self::$validators[$key]['message'] = $function;
+	}
+
+	public static function get( $key ) {
+		if ( ! isset(self::$validators[$key]['function'] ) ) return false;
+		return self::$validators[$key]['function'];
+	}
+
+	public static function get_message( $key ) {
+		if ( ! isset(self::$validators[$key]['message'] ) )
+			return 'This value is not valid';
+		else return self::$validators[$key]['message'];
+	}
+
+}
+
+Validators::add('required', 'This field is required',
+	function( $value ) {
+		if ( $value !== '' ) return TRUE;
+		else return FALSE;
+	}
+);
+
+Validators::add('email', 'Please enter a valid email address',
+	function ( $value ) {
+		return (filter_var($value, FILTER_VALIDATE_EMAIL) ? TRUE : FALSE);
+	}
+);
+
+Validators::add('url', 'Please enter a valid URL',
+	function ( $value ) {
+		return filter_var($value, FILTER_VALIDATE_URL) ? TRUE : FALSE;
+	}
+);
+
+Validators::add('number', 'Please enter a number',
+	function ( $value ) {
+		if (
+			filter_var($value, FILTER_VALIDATE_INT) ||
+			filter_var($value, FILTER_VALIDATE_FLOAT)
+		) return true;
+		else return false;
+	}
+);
