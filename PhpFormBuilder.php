@@ -323,11 +323,11 @@ class Input extends BaseClass {
 
 			// Can this field be populated directly?
 			if ( ! in_array( $this->settings['type'], array( 'html', 'title', 'radio', 'checkbox', 'select', 'submit' ) ) ) {
-				$this->settings['value'] = $_REQUEST[ $this->settings['name'] ];
+				$this->settings['value'] = htmlspecialchars( $_REQUEST[ $this->settings['name'] ] );
 			}
 		}
 
-		// Automatic population for checkboxes and radios
+		// Automatic population for SINGULAR checkboxes and radios
 		if (
 			$this->settings['request_populate'] &&
 			( $this->settings['type'] == 'radio' || $this->settings['type'] == 'checkbox' ) &&
