@@ -1,10 +1,19 @@
 <?php
 
 class BaseClass {
-	protected $settings, $defaults;
+	protected $defaults = array();
+	//Usually set in the Constructor and merged with $args to create settings
 
+	protected $settings;
+	//settings - created by merging defaults with arrays
+
+
+	/**
+	 * Merge $this->settings with $this->defaults;
+	 *
+	 * @param bool/array   $args
+	 */
 	protected function create_settings( $args ) {
-		// Merge with arguments, if present
 		if ( $args ) {
 			$this->settings = array_merge( $this->defaults, $args );
 		} else {
@@ -12,22 +21,42 @@ class BaseClass {
 		}
 	}
 
-	public function set_att( $key, $value ) {
+	/**
+	* Add or update a setting.
+	*
+	* @param string   $key
+	* @param string 	$value
+	*
+	* @return bool (true)
+	*/
+	public function set( $key, $value ) {
 		$this->settings[$key] = $value;
+		return true;
 	}
 
-	protected function add_att( $key, $value ) {
+	/**
+	* Add to an array within a setting.
+	* Do so only if that setting already exists and represents an array.
+	* Return false on failure.
+	*
+	* @param string   $key
+	* @param string 	$value
+	*
+	* @return bool
+	*/
+	protected function add_setting( $key, $value ) {
 		if ( isset($this->settings[$key]) && is_array($this->settings[$key]) ) {
-			$this->settings[$key] = $value;
+			$this->settings[$key][] = $value;
 			return true;
 		} else {
+			throw new Exception('Attempting to add value to a non-array');
 			return false;
 		}
 	}
 
 	// Validates id and class attributes
 	// TODO: actually validate these things
-	protected function _check_valid_attr( $string ) {
+	private function check_valid_attr( $string ) {
 
 		$result = true;
 
@@ -38,8 +67,14 @@ class BaseClass {
 
 	}
 
-	// Create a slug from a label name
-	protected function _make_slug( $string ) {
+	/**
+	* Create a slug from a label name
+	* e.g. if $string = 'Make a payment', slug will be 'make-a-payment'
+	*
+	* @param  string   $string
+	* @return string
+	*/
+	protected function make_slug( $string ) {
 
 		$result = '';
 
@@ -54,8 +89,14 @@ class BaseClass {
 
 	}
 
-	// Parses and builds HTML classes
-	protected function _output_classes( $classes ) {
+	/**
+	* Create HTML class string from an array of classes
+	* e.g. array('form-control', 'credit-card') becomes 'class="form-control credit-card"'
+	*
+	* @param  array   $classes
+	* @return $string
+	*/
+	protected function output_classes( $classes ) {
 
 		$output = '';
 
@@ -91,6 +132,7 @@ class PhpFormBuilder extends BaseClass {
 	 *
 	 * @param string $action
 	 * @param bool   $args
+	 *
 	 */
 	function __construct( $args = false ) {
 
@@ -119,19 +161,24 @@ class PhpFormBuilder extends BaseClass {
 	 * @param string $label
 	 * @param string $args
 	 * @param string $slug
+	 *
+	 * @return object/Input
 	 */
 	function add_input( $label, $args = array(), $slug = '' ) {
+		//if the slug is left blank, the Input object will build one
 		$input = new Input( $label, $args, $slug );
+		//add classes and wrapper element for Bootstrap, if requested
 		if ( $this->settings['bootstrap'] ) {
-			$input->add_att( 'class', 'form-control' );
-			$input->set_att( 'wrap_tag', 'div' );
-			$input->set_att( 'wrap_class', 'form-group' );
+			$input->add_setting( 'class', 'form-control' );
+			$input->set( 'wrap_tag', 'div' );
+			$input->set( 'wrap_class', 'form-group' );
 		}
-		$this->inputs[$input->get_slug()] = $input;
+		return $this->inputs[$input->get_slug()] = $input;
 	}
 
 	/**
 	 * Add multiple inputs to the input queue
+	 * Each input should be formatted as an array of [label, args, slug]
 	 *
 	 * @param $arr
 	 *
@@ -187,7 +234,7 @@ class PhpFormBuilder extends BaseClass {
 			$output .= '>';
 		}
 
-		// Add honeypot anti-spam field
+		// Add optional honeypot anti-spam field
 		if ( $this->settings['add_honeypot'] ) {
 			$this->add_input( 'Leave blank to submit', array(
 				'name'             => 'honeypot',
@@ -201,7 +248,7 @@ class PhpFormBuilder extends BaseClass {
 			) );
 		}
 
-		// Add a WordPress nonce field
+		// Add optional WordPress nonce field
 		if ( $this->settings['add_nonce'] && function_exists( 'wp_create_nonce' ) ) {
 			$this->add_input( 'WordPress nonce', array(
 				'value'            => wp_create_nonce( $this->settings['add_nonce'] ),
@@ -234,6 +281,11 @@ class PhpFormBuilder extends BaseClass {
 		}
 	}
 
+	/**
+	* Runs through each Inputs validation functions, if any
+	*
+	* @return bool - entire form is valid or not valid
+	*/
 	public function validate() {
 		$valid = TRUE;
 		foreach ( $this->inputs as $input ) {
@@ -242,15 +294,29 @@ class PhpFormBuilder extends BaseClass {
 		return  $valid;
 	}
 
+	/**
+	* Get a safe (validated) value for this field. Safe values are set for the validate
+	* function, so if the form has not been validated first, this function will return
+	* NULL.
+	*
+	* @param string - key (slug) for the field we need a value for.
+	* @return bool - entire form is valid or not valid
+	*/
 	public function get_safe_value( $key ) {
 		if ( isset($this->inputs[$key] ) ) {
 			return $this->inputs[$key]->get_value();
 		} else {
-			throw new Exception('Field with key '. $key . 'not found');
+			throw new Exception('Field with key '. $key . ' does not exist');
 			return;
 		}
 	}
 
+	/**
+	* Get safe (validated) value for all fields in this form. Will get an array
+	* of NULLs if the form has not already been validated.
+	*
+	* @return array of strings
+	*/
 	public function get_safe_values() {
 		$values = array();
 		foreach ( $this->inputs as $slug => $input ) {
@@ -263,19 +329,32 @@ class PhpFormBuilder extends BaseClass {
 
 class Input extends BaseClass {
 
+	//label - nice name for the field. Can go in the label tag or placeholder
+	//slug - all lowercase, no spaces version of the label, or another
+	//computer-accessible label for the field
 	protected $label, $args, $slug;
 
-	private $value, $valid, $message = '';
+	//validators - validation objects attached to this field. Copied from $this->settings['validators']
+	//value - safe value after the field passes validation
+	//valid - boolean
+	//message - to be displayed if the field fails validation
+	private $validators = array(), $value, $valid, $message = '';
 
+	/**
+	*
+	* @param string $label - nice name for the field. Can go in the label tag or placeholder
+	* @param array $args - merged with defaults to create settings
+	* @param string slug - all lowercase, no spaces version of the label, or another
+	*/
 	function __construct( $label, $args, $slug ) {
 
 		$this->label = $label;
 
-		// Create a valid id or class attribute
+		// Create slug if we don't have one
 		if ( $slug === '' ) {
-			$slug = $this->slug = $this->_make_slug( $label );
+			$slug = $this->slug = $this->make_slug( $label );
 		} else {
-			$slug = $this->slug = $slug;
+			$slug = $this->slug;
 		}
 
 		$this->defaults = array(
@@ -283,7 +362,7 @@ class Input extends BaseClass {
 			'name'             => $slug,
 			'id'               => $slug,
 			'label'            => $label,
-			'value'            => '',
+			'value'            => '', //display (HTML-escaped value)
 			'placeholder'      => '',
 			'class'            => array(),
 			'min'              => '',
@@ -292,7 +371,6 @@ class Input extends BaseClass {
 			'autofocus'        => false,
 			'checked'          => false,
 			'selected'         => false,
-			'required'         => false,
 			'add_label'        => true,
 			'options'          => array(),
 			'wrap_tag'         => 'div',
@@ -302,18 +380,19 @@ class Input extends BaseClass {
 			'before_html'      => '',
 			'after_html'       => '',
 			'request_populate' => true,
+			'required'         => false,
 			'validators' 			 => array()
 		);
 
 		$this->create_settings( $args );
 
 		//attach validators
-		$this->attach_validators();
+		$this->attach_validators( $this->settings['validators'] );
 
-		//replace numerically indexed options with a slug
+		//replace numerically indexed options with a slug index.
 		$options = array();
 		foreach ($this->settings['options'] as $key => $option) {
-			if ( is_int($key) ) $options[$this->_make_slug($option)] = $option;
+			if ( is_int($key) ) $options[$this->make_slug($option)] = $option;
 			else $options[$key] = $option;
 		}
 		$this->settings['options'] = $options;
@@ -338,12 +417,38 @@ class Input extends BaseClass {
 	}
 
 
-	// Easy way to auto-close fields, if necessary
+	/**
+	* Automaitcally add to the validators if this field is required,
+	* or if it is an email, url, or number field
+	*
+	* We place these at the beginning of the validators array so that they are executed first.
+	*/
+	private function attach_validators($validators) {
+
+		$this->validators = $validators;
+
+		//place field-type-specific validators
+		$type_validators = array('email', 'url', 'number');
+		if ( in_array($this->settings['type'], $type_validators ) )
+			array_unshift($this->validators, $this->settings['type']);
+
+		//place required validator
+		if ( $this->settings['required'] )
+			array_unshift($this->validators, 'required');
+
+	}
+
+
+	/**
+	* Little method for closing fields
+	*/
 	private function field_close() {
 		return ' />';
 	}
 
-	// Build the label
+	/**
+	* Create the HTML for the label. Called by self::build_input()
+	*/
 	private function build_label() {
 		if ( ! empty( $label_html ) ) {
 			return $label_html;
@@ -355,6 +460,9 @@ class Input extends BaseClass {
 		}
 	}
 
+	/**
+	* Create the HTML for the field. Called by self::build_input()
+	*/
 	private function build_field() {
 
 		$min_max_range = $element = $end = $attr = $field = '';
@@ -490,10 +598,17 @@ class Input extends BaseClass {
 		return $field;
 	}
 
+	/**
+	* Create the HTML for the errors. Called by self::build_input(). Remember to
+	* validate the form first or the errors will not display!
+	*/
 	private function build_errors() {
 		return '<div class="error">'.$this->message.'</div>';
 	}
 
+	/**
+	* Build HTML for entire input widget, including wrapper, label, input and errors.
+	*/
 	public function build_input() {
 
 		if ( $this->settings['type'] != 'hidden' && $this->settings['type'] != 'html' ) {
@@ -522,32 +637,29 @@ class Input extends BaseClass {
 		return $output;
 	}
 
-
-	private function attach_validators() {
-
-		//place field-type-specific validators
-		$type_validators = array('email', 'url', 'number');
-		if ( in_array($this->settings['type'], $type_validators ) )
-			array_unshift($this->settings['validators'], $this->settings['type']);
-
-		//place required validator
-		if ( $this->settings['required'] )
-			array_unshift($this->settings['validators'], 'required');
-
-	}
-
+	/**
+	* Run through validators attached to this field.
+	* If valid, set the value (now considered safe) and return true.
+	* If ANY ONE OF the validators fails, set an error message and return false.
+	* @return bool
+	*/
 	public function validate() {
 
+		//
 		$value = isset($_REQUEST[$this->slug]) ? $_REQUEST[$this->slug] : '';
 
-		foreach ($this->settings['validators'] as $validator) {
+		foreach ($this->validators as $validator) {
+			//validator names can be supplied with args after a dash.
+			//e.g. maxlength-35 calls Validator named maxlength and passes 35 as an argument
 			$args = explode('-', $validator);
 			$validator_name = array_shift( $args );
 
+			//find the function if it has been registered, otherwise throw an Exception
 			$function = Validators::get( $validator_name );
-			if ( ! $function ) throw new Exception('No validator with key '.$validator. ' set');
+			if ( ! $function ) throw new Exception('No validator with key '.$validator.' set');
+			//execute the attached function.
 			if ( ! $function($value, $args) ) {
-				//set to false and stop checking
+				//set to valid to false and stop checking
 				$this->valid = FALSE;
 				$this->value = NULL;
 				$this->message = Validators::get_message( $validator );
@@ -562,18 +674,29 @@ class Input extends BaseClass {
 
 	}
 
+	/*
+	* Get the slug for this input field.
+	*/
 	public function get_slug() {
 		return $this->slug;
 	}
 
+	/*
+	* Get the safe value for this input field.
+	* This prop is set by the validate() method.
+	* If no value is around return NULL.
+	*/
 	public function get_value() {
-		return $this->value;
+		return ($this->value ?: NULL);
 	}
 
 }
 
-
+/*
+*  This class acts as a place to publish.
+*/
 class Validators extends BaseClass {
+	//array of registered validators.
 	private static $validators;
 
 	static function add( $key, $message, $function ) {
