@@ -573,7 +573,7 @@ class Input extends BaseClass {
 		$id = ! empty( $this->settings['id'] ) ? ' id="' . $this->settings['id'] . '"' : '';
 
 		// Output classes
-		$class = $this->_output_classes( $this->settings['class'] );
+		$class = $this->output_classes( $this->settings['class'] );
 
 		// Special HTML5 fields, if set
 		$attr .= $this->settings['autofocus'] ? ' autofocus' : '';
@@ -618,7 +618,7 @@ class Input extends BaseClass {
 			$wrap_before = $this->settings['before_html'];
 			if ( ! empty( $this->settings['wrap_tag'] ) ) {
 				$wrap_before .= '<' . $this->settings['wrap_tag'];
-				$wrap_before .= count( $this->settings['wrap_class'] ) > 0 ? $this->_output_classes( $this->settings['wrap_class'] ) : '';
+				$wrap_before .= count( $this->settings['wrap_class'] ) > 0 ? $this->output_classes( $this->settings['wrap_class'] ) : '';
 				$wrap_before .= ! empty( $this->settings['wrap_style'] ) ? ' style="' . $this->settings['wrap_style'] . '"' : '';
 				$wrap_before .= ! empty( $this->settings['wrap_id'] ) ? ' id="' . $this->settings['wrap_id'] . '"' : '';
 				$wrap_before .= '>';
