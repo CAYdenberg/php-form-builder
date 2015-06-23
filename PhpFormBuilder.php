@@ -377,7 +377,9 @@ class Input extends BaseClass {
 
 		// Create slug if we don't have one
 		if ( $slug === '' ) {
-			$slug = $this->slug = $this->make_slug( $label );
+			$this->slug = $slug = $this->make_slug( $label );
+		} else {
+			$this->slug = $slug;
 		}
 
 		$this->defaults = array(
@@ -397,7 +399,8 @@ class Input extends BaseClass {
 			'selected'         => false,
 			'add_label'        => true,
 			'options'          => array(),
-			'format' 					 => '<div class="form-group">%s%s%s</div>',
+			'format' 					 => '<div %s>%s%s%s</div>',
+			'wrap_class'  		 => array('form-group'),
 			'request_populate' => true,
 			'required'         => false,
 			'validators' 			 => array()
@@ -556,7 +559,7 @@ class Input extends BaseClass {
 							isset( $_REQUEST[ $this->settings['name'] ] ) &&
 
 							// Is the selected item(s) in the $_REQUEST data?
-							in_array( $key, $_REQUEST[ $this->settings['name'] ] )
+							in_array( $key, $_REQUEST )
 						) {
 							$end .= ' checked';
 						}
@@ -634,6 +637,7 @@ class Input extends BaseClass {
 		if ( $this->settings['type'] != 'hidden' && $this->settings['type'] != 'html' ) {
 
 			$output = sprintf( $this->settings['format'],
+				$this->output_classes( $this->settings['wrap_class']),
 				$this->build_label(),
 				$this->build_field(),
 				$this->build_errors()
@@ -654,7 +658,7 @@ class Input extends BaseClass {
 	*/
 	public function validate() {
 
-		//
+		//get value in a safe way
 		$value = isset($_REQUEST[$this->slug]) ? $_REQUEST[$this->slug] : '';
 
 		foreach ($this->validators as $validator) {
