@@ -44,7 +44,7 @@ class BaseClass {
 	*
 	* @return bool
 	*/
-	protected function add_setting( $key, $value ) {
+	public function add_setting( $key, $value ) {
 		if ( isset($this->settings[$key]) && is_array($this->settings[$key]) ) {
 			$this->settings[$key][] = $value;
 			return true;
@@ -148,8 +148,7 @@ class PhpFormBuilder extends BaseClass {
 			'add_nonce'    => false,
 			'add_honeypot' => true,
 			'form_element' => true,
-			'add_submit'   => true,
-			'bootstrap'		 => false
+			'add_submit'   => true
 		);
 		$this->create_settings( $args );
 
@@ -167,12 +166,6 @@ class PhpFormBuilder extends BaseClass {
 	function add_input( $label, $args = array(), $slug = '' ) {
 		//if the slug is left blank, the Input object will build one
 		$input = new Input( $label, $args, $slug );
-		//add classes and wrapper element for Bootstrap, if requested
-		if ( $this->settings['bootstrap'] ) {
-			$input->add_setting( 'class', 'form-control' );
-			$input->set( 'wrap_tag', 'div' );
-			$input->set( 'wrap_class', 'form-group' );
-		}
 		return $this->inputs[$input->get_slug()] = $input;
 	}
 
@@ -184,7 +177,7 @@ class PhpFormBuilder extends BaseClass {
 	 *
 	 * @return bool
 	 */
-	function add_inputs( $arr ) {
+	public function add_inputs( $arr ) {
 
 		foreach ( $arr as $field ) {
 			$this->add_input(
@@ -195,6 +188,38 @@ class PhpFormBuilder extends BaseClass {
 		}
 
 		return true;
+	}
+
+	/**
+	* Set or overwrite for each Input in the form.
+	* NOTE: must be called after the inputs are set
+	*
+	* @param setting_key string
+	* @param setting_value string
+	* @param exclude array - exclude inputs by slug
+	*
+	*/
+	public function set_for_each_input( $setting_key, $setting_value, $exclude = array() ) {
+		foreach ( $this->inputs as $input_key => $input ) {
+			if ( in_array($input_key, $exclude) ) continue;
+			$input->set( $setting_key, $setting_value );
+		}
+	}
+
+	/**
+	 * Add a setting (such as a class) for each Input in the form.
+	 * NOTE: must be called after the inputs are set
+	 *
+	 * @param setting_key string
+	 * @param setting_value string
+	 * @param exclude array - exclude inputs by slug
+	 *
+	 */
+	public function add_setting_for_each_input( $setting_key, $setting_value, $exclude = array() ) {
+		foreach ( $this->inputs as $input_key => $input ) {
+			if ( in_array($input_key, $exclude) ) continue;
+			$input->add_setting( $setting_key, $setting_value );
+		}
 	}
 
 	/**
@@ -224,7 +249,7 @@ class PhpFormBuilder extends BaseClass {
 			}
 
 			if ( count( $this->settings['class'] ) > 0 ) {
-				$output .= $this->_output_classes( $this->settings['class'] );
+				$output .= $this->output_classes( $this->settings['class'] );
 			}
 
 			if ( $this->settings['novalidate'] ) {
@@ -346,15 +371,13 @@ class Input extends BaseClass {
 	* @param array $args - merged with defaults to create settings
 	* @param string slug - all lowercase, no spaces version of the label, or another
 	*/
-	function __construct( $label, $args, $slug ) {
+	function __construct( $label, $args, $slug = '' ) {
 
 		$this->label = $label;
 
 		// Create slug if we don't have one
 		if ( $slug === '' ) {
 			$slug = $this->slug = $this->make_slug( $label );
-		} else {
-			$slug = $this->slug;
 		}
 
 		$this->defaults = array(
@@ -362,6 +385,7 @@ class Input extends BaseClass {
 			'name'             => $slug,
 			'id'               => $slug,
 			'label'            => $label,
+			'label_class' 		 => array(),
 			'value'            => '', //display (HTML-escaped value)
 			'placeholder'      => '',
 			'class'            => array(),
@@ -373,12 +397,7 @@ class Input extends BaseClass {
 			'selected'         => false,
 			'add_label'        => true,
 			'options'          => array(),
-			'wrap_tag'         => 'div',
-			'wrap_class'       => array( 'form_field_wrap' ),
-			'wrap_id'          => '',
-			'wrap_style'       => '',
-			'before_html'      => '',
-			'after_html'       => '',
+			'format' 					 => '<div class="form-group">%s%s%s</div>',
 			'request_populate' => true,
 			'required'         => false,
 			'validators' 			 => array()
@@ -456,7 +475,8 @@ class Input extends BaseClass {
 			if ( $this->settings['required'] ) {
 				$this->settings['label'] .= ' <strong>*</strong>';
 			}
-			return '<label for="' . $this->settings['id'] . '">' . $this->settings['label'] . '</label>';
+			$class = $this->output_classes( $this->settings['label_class'] );
+			return '<label for="' . $this->settings['id'] . '" '.$class.'>' . $this->settings['label'] . '</label>';
 		}
 	}
 
@@ -520,7 +540,7 @@ class Input extends BaseClass {
 					$element = '';
 					foreach ( $this->settings['options'] as $key => $opt ) {
 
-						$slug = $this->_make_slug( $opt );
+						$slug = $this->make_slug( $opt );
 						$end .= sprintf(
 							'<input type="%s" name="%s" value="%s" id="%s"',
 							$this->settings['type'],
@@ -541,7 +561,7 @@ class Input extends BaseClass {
 							$end .= ' checked';
 						}
 						$end .= $this->field_close();
-						$end .= ' <label for="' . $slug . '">' . $opt . '</label>';
+						$end .= ' <label for="' . $slug . '">' . $opt . '</label><br />';
 					}
 					$label_html = '<div class="checkbox_header">' . $this->settings['label'] . '</div>';
 					break;
@@ -613,23 +633,12 @@ class Input extends BaseClass {
 
 		if ( $this->settings['type'] != 'hidden' && $this->settings['type'] != 'html' ) {
 
-			$inner = $this->build_label() . $this->build_field() . $this->build_errors();
+			$output = sprintf( $this->settings['format'],
+				$this->build_label(),
+				$this->build_field(),
+				$this->build_errors()
+			);
 
-			$wrap_before = $this->settings['before_html'];
-			if ( ! empty( $this->settings['wrap_tag'] ) ) {
-				$wrap_before .= '<' . $this->settings['wrap_tag'];
-				$wrap_before .= count( $this->settings['wrap_class'] ) > 0 ? $this->output_classes( $this->settings['wrap_class'] ) : '';
-				$wrap_before .= ! empty( $this->settings['wrap_style'] ) ? ' style="' . $this->settings['wrap_style'] . '"' : '';
-				$wrap_before .= ! empty( $this->settings['wrap_id'] ) ? ' id="' . $this->settings['wrap_id'] . '"' : '';
-				$wrap_before .= '>';
-			}
-
-			$wrap_after = $this->settings['after_html'];
-			if ( ! empty( $this->settings['wrap_tag'] ) ) {
-				$wrap_after = '</' . $this->settings['wrap_tag'] . '>' . $wrap_after;
-			}
-
-			$output = $wrap_before . $inner . $wrap_after;
 		} else {
 			$output = $this->build_field();
 		}
