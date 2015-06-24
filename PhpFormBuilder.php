@@ -265,20 +265,20 @@ class PhpFormBuilder extends BaseClass {
 				'name'             => 'honeypot',
 				'slug'             => 'honeypot',
 				'id'               => 'form_honeypot',
-				'wrap_tag'         => 'div',
-				'wrap_class'       => array( 'form_field_wrap', 'hidden' ),
-				'wrap_id'          => '',
-				'wrap_style'       => 'display: none',
+				'wrap_class'       => array('hidden'),
 				'request_populate' => false
 			) );
 		}
 
 		// Add optional WordPress nonce field
 		if ( $this->settings['add_nonce'] && function_exists( 'wp_create_nonce' ) ) {
+			if ( !function_exists('wp_create_nonce') ) {
+				throw new Exception('Attemping to create nonce outside of Wordpress context');
+			}
 			$this->add_input( 'WordPress nonce', array(
 				'value'            => wp_create_nonce( $this->settings['add_nonce'] ),
 				'add_label'        => false,
-				'type'             => 'hidden',
+				'wrap_class' 			 => array('hidden'),
 				'request_populate' => false
 			) );
 		}
@@ -450,7 +450,7 @@ class Input extends BaseClass {
 		$this->validators = $validators;
 
 		//place field-type-specific validators
-		$type_validators = array('email', 'url', 'number');
+		$type_validators = array('email', 'url', 'number', 'honeypot', 'nonce');
 		if ( in_array($this->settings['type'], $type_validators ) )
 			array_unshift($this->validators, $this->settings['type']);
 
@@ -674,6 +674,7 @@ class Input extends BaseClass {
 			if ( ! $function($value, $args) ) {
 				//set to valid to false and stop checking
 				$this->valid = FALSE;
+				$this->add_setting('class', 'invalid');
 				$this->value = NULL;
 				$this->message = Validators::get_message( $validator );
 				return FALSE;
@@ -739,6 +740,10 @@ class Validators extends BaseClass {
 
 }
 
+/*
+* Built in validators
+*/
+
 Validators::add('required', 'This field is required',
 	function( $value, $args ) {
 		if ( $value !== '' ) return TRUE;
@@ -765,5 +770,20 @@ Validators::add('number', 'Please enter a number',
 			filter_var($value, FILTER_VALIDATE_FLOAT)
 		) return true;
 		else return false;
+	}
+);
+
+Validators::add('honeypot', 'Something isn\'t right here',
+	function( $value, $args ) {
+		return ($value === '');
+	}
+);
+
+Validators::add('nonce', 'Something smells fishy',
+	function( $value, $args ) {
+		if ( !function_exists('wp_verify_nonce') ) {
+			throw new Exception('Attemping to create nonce outside of Wordpress context');
+		}
+		return wp_verify_nonce($value);
 	}
 );
