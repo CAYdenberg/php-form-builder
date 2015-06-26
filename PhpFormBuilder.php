@@ -455,7 +455,9 @@ class Input extends BaseClass {
 			array_unshift($this->validators, $this->settings['type']);
 
 		//place required validator
-		if ( $this->settings['required'] )
+		//ignore if this is a file
+		//TODO: split files off into their own class
+		if ( $this->settings['required'] && $this->settings['type'] !== 'file' )
 			array_unshift($this->validators, 'required');
 
 	}
@@ -650,6 +652,33 @@ class Input extends BaseClass {
 		return $output;
 	}
 
+	/*
+	* This is a temporary method until we split off classes for handling files
+	*/
+	public function validate_file() {
+		$file = isset($_FILES[$this->slug]) ? $_FILES[$this->slug] : false;
+		if ( !$file ) {
+			throw new Exception('No file found for field with slug '.$this->slug);
+		}
+		if ( ! $file['name'] || $file['name'] === '' ) {
+			$this->add_setting('class', 'invalid');
+			$this->message = 'This field is required';
+			return FALSE;
+		}
+		$accepted = array(
+			'application/pdf',
+			'application/x-pdf',
+			'application/msword',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+		);
+		if ( ! in_array($file['type'], $accepted) ) {
+			$this->add_setting('class', 'invalid');
+			$this->message = 'Please use .doc, .docx, or .pdf files only';
+			return FALSE;
+		}
+		return true;
+	}
+
 	/**
 	* Run through validators attached to this field.
 	* If valid, set the value (now considered safe) and return true.
@@ -657,6 +686,11 @@ class Input extends BaseClass {
 	* @return bool
 	*/
 	public function validate() {
+
+		if ( $this->settings['type'] === 'file' ) {
+			//pass this off to validate file
+			return $this->validate_file();
+		}
 
 		//get value in a safe way
 		$value = isset($_REQUEST[$this->slug]) ? $_REQUEST[$this->slug] : '';
@@ -687,6 +721,8 @@ class Input extends BaseClass {
 		return TRUE;
 
 	}
+
+
 
 	/*
 	* Get the slug for this input field.
@@ -769,6 +805,44 @@ Validators::add('number', 'Please enter a number',
 			filter_var($value, FILTER_VALIDATE_INT) ||
 			filter_var($value, FILTER_VALIDATE_FLOAT)
 		) return true;
+		else return false;
+	}
+);
+
+//valid: 4242424242424242, 4242-4242-4242-4242, 4242 4242 4242 4242
+//invalid: anything without 16 digits exactly
+Validators::add('credit_card', 'Please enter a 16-digit credit card number',
+  function ( $value, $args ) {
+    //remove anything that's not a digit
+    $number = preg_replace('/(\D)/', '', $value);
+    return ( strlen($number) === 16 );
+  }
+);
+
+//valid: 07/19
+//invalid: 0719, 00/19, 07/01/19
+Validators::add('expiry_date', 'Please enter a valid expiry date',
+  function ( $value, $args ) {
+    $date_parts = explode('/', $value);
+    //date does not have exactly 2 parts
+    if ( count($date_parts) !== 2 ) return false;
+
+    $month = $date_parts[0];
+    //make sure month is a string of exactly 2 digits
+    if ( !preg_match('/^\d{2}$/', $month) ) return false;
+    //make sure month is in range 1 - 12
+    if ( intval($month) < 1 || intval($month) > 12 ) return false;
+
+    $year = $date_parts[1];
+    //make sure year is a string of exactly 2 digits
+    if ( !preg_match('/^\d{2}$/', $month) ) return false;
+    return true;
+  }
+);
+
+Validators::add('cvc', 'Please enter a valid card verification code',
+	function ( $value, $args ) {
+		if ( preg_match('/^\d{3}$/', $value) ) return true;
 		else return false;
 	}
 );
