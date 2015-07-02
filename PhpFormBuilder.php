@@ -191,6 +191,16 @@ class PhpFormBuilder extends BaseClass {
 	}
 
 	/**
+	* Delete all inputs from the form.
+	* Useful to suppress output if validation and all subsequent tasks are
+	* succesful.
+	*
+	*/
+	public function delete_inputs() {
+		$this->inputs = array();
+	}
+
+	/**
 	* Set or overwrite for each Input in the form.
 	* NOTE: must be called after the inputs are set
 	*
