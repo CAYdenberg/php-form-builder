@@ -1,0 +1,13 @@
+{
+    "name": "caydenberg/php-form-builder",
+    "description": "Easily create HTML forms using a few lines of PHP",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "CAYdenberg",
+            "email": "casey@graphos.ca"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {}
+}
