@@ -2,7 +2,7 @@
 
 namespace PhpFormBuilder;
 
-class PhpFormBuilder extends BaseClass {
+class Form extends BaseClass {
 
 	// Stores all form inputs
 	private $inputs = array();
