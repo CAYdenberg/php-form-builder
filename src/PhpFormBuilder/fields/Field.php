@@ -1,6 +1,6 @@
 <?php
 
-namespace PhpFormBuilder\Field;
+namespace PhpFormBuilder;
 use PhpFormBuilder;
 
 class Field extends BaseClass {
