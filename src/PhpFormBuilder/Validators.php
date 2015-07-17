@@ -1,7 +1,4 @@
-<?php
-
-namespace PhpFormBuilder\Validators;
-use PhpFormBuilder;
+<?php namespace PhpFormBuilder;
 
 /*
 *  This class acts as a place to publish.
@@ -36,10 +33,6 @@ class Validators extends BaseClass {
 	}
 
 }
-
-
-
-
 
 /*
 * Built in validators

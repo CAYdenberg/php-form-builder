@@ -1,6 +1,4 @@
-<?php
-
-namespace PhpFormBuilder;
+<?php namespace PhpFormBuilder;
 
 class BaseClass {
 	protected $defaults = array();

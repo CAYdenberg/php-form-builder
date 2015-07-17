@@ -48,7 +48,7 @@ class PhpFormBuilder extends BaseClass {
 	 */
 	function add_input( $label, $args = array(), $slug = '' ) {
 		//if the slug is left blank, the Input object will build one
-		$input = new Input( $label, $args, $slug );
+		$input = new Field( $label, $args, $slug );
 		return $this->inputs[$input->get_slug()] = $input;
 	}
 
