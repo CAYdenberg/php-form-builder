@@ -1,8 +1,6 @@
 <?php namespace PhpFormBuilder;
 
-die('die in PhpFormBuilder');
-
-class Form {
+class PhpFormBuilder extends BaseClass {
 
 	// Stores all form inputs
 	private $inputs = array();
