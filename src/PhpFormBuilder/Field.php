@@ -1,4 +1,4 @@
-<?php namespace PhpFormBuilder; 
+<?php namespace PhpFormBuilder;
 
 class Field extends BaseClass {
 
@@ -193,7 +193,7 @@ class Field extends BaseClass {
 					$element = '';
 					foreach ( $this->settings['options'] as $key => $opt ) {
 
-						$slug = $this->make_slug( $opt );
+						$slug = $key;
 						$end .= sprintf(
 							'<input type="%s" name="%s" value="%s" id="%s"',
 							$this->settings['type'],
