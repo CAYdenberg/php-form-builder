@@ -69,17 +69,26 @@ Validators::add('number', 'Please enter a number',
 
 //valid: 4242424242424242, 4242-4242-4242-4242, 4242 4242 4242 4242
 //invalid: anything without 16 digits exactly
-Validators::add('credit_card', 'Please enter a 16-digit credit card number',
+Validators::add('credit_card', 'Please enter a valid credit card number',
   function ( $value, $args ) {
     //remove anything that's not a digit
     $number = preg_replace('/(\D)/', '', $value);
-    return ( strlen($number) === 16 );
+		settype($number, 'string');
+		$sumTable = array(
+			array(0,1,2,3,4,5,6,7,8,9),
+			array(0,2,4,6,8,1,3,5,7,9));
+		$sum = 0;
+		$flip = 0;
+		for ($i = strlen($number) - 1; $i >= 0; $i--) {
+			$sum += $sumTable[$flip++ & 0x1][$number[$i]];
+		}
+		return $sum % 10 === 0;
   }
 );
 
 //valid: 07/19
 //invalid: 0719, 00/19, 07/01/19
-Validators::add('expiry_date', 'Please enter a valid expiry date',
+Validators::add('expiry_date', 'Please enter a valid expiry date in the format MM/YY',
   function ( $value, $args ) {
     $date_parts = explode('/', $value);
     //date does not have exactly 2 parts
@@ -100,8 +109,9 @@ Validators::add('expiry_date', 'Please enter a valid expiry date',
 
 Validators::add('cvc', 'Please enter a valid card verification code',
 	function ( $value, $args ) {
-		if ( preg_match('/^\d{3}$/', $value) ) return true;
-		else return false;
+		if ( preg_match('/\D/', $value) ) return false;
+		if ( strlen($value) < 3 || strlen($value) > 4 ) return false;
+		return true;
 	}
 );
 
