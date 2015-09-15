@@ -98,7 +98,7 @@ class Field extends BaseClass {
 		$this->validators = $validators;
 
 		//place field-type-specific validators
-		$type_validators = array('email', 'url', 'number', 'honeypot', 'nonce');
+		$type_validators = array('email', 'url', 'number', 'file', 'honeypot', 'nonce');
 		if ( in_array($this->settings['type'], $type_validators ) )
 			array_unshift($this->validators, $this->settings['type']);
 
@@ -300,33 +300,6 @@ class Field extends BaseClass {
 		return $output;
 	}
 
-	/*
-	* This is a temporary method until we split off classes for handling files
-	*/
-	public function validate_file() {
-		$file = isset($_FILES[$this->slug]) ? $_FILES[$this->slug] : false;
-		if ( !$file ) {
-			throw new Exception('No file found for field with slug '.$this->slug);
-		}
-		if ( ! $file['name'] || $file['name'] === '' ) {
-			$this->add_setting('class', 'invalid');
-			$this->message = 'This field is required';
-			return FALSE;
-		}
-		$accepted = array(
-			'application/pdf',
-			'application/x-pdf',
-			'application/msword',
-			'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-		);
-		if ( ! in_array($file['type'], $accepted) ) {
-			$this->add_setting('class', 'invalid');
-			$this->message = 'Please use .doc, .docx, or .pdf files only';
-			return FALSE;
-		}
-		return true;
-	}
-
 	/**
 	* Run through validators attached to this field.
 	* If valid, set the value (now considered safe) and return true.
@@ -336,12 +309,10 @@ class Field extends BaseClass {
 	public function validate() {
 
 		if ( $this->settings['type'] === 'file' ) {
-			//pass this off to validate file
-			return $this->validate_file();
+			$value = isset($_FILES[$this->slug]) ? $_FILES[$this->slug] : false;
+		} else {
+			$value = isset($_REQUEST[$this->slug]) ? $_REQUEST[$this->slug] : '';
 		}
-
-		//get value in a safe way
-		$value = isset($_REQUEST[$this->slug]) ? $_REQUEST[$this->slug] : '';
 
 		foreach ($this->validators as $validator) {
 			//validator names can be supplied with args after a dash.
@@ -351,7 +322,7 @@ class Field extends BaseClass {
 
 			//find the function if it has been registered, otherwise throw an Exception
 			$function = Validators::get( $validator_name );
-			if ( ! $function ) throw new Exception('No validator with key '.$validator.' set');
+			if ( ! $function ) throw new \Exception('No validator with key \''.$validator.'\' set');
 			//execute the attached function.
 			if ( ! $function($value, $args) ) {
 				//set to valid to false and stop checking

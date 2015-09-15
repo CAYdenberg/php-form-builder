@@ -94,13 +94,13 @@ Validators::add('expiry_date', 'Please enter a valid expiry date in the format M
     //date does not have exactly 2 parts
     if ( count($date_parts) !== 2 ) return false;
 
-    $month = $date_parts[0];
+    $month = trim($date_parts[0]);
     //make sure month is a string of exactly 2 digits
     if ( !preg_match('/^\d{2}$/', $month) ) return false;
     //make sure month is in range 1 - 12
     if ( intval($month) < 1 || intval($month) > 12 ) return false;
 
-    $year = $date_parts[1];
+    $year = trim($date_parts[1]);
     //make sure year is a string of exactly 2 digits
     if ( !preg_match('/^\d{2}$/', $month) ) return false;
     return true;
@@ -127,5 +127,24 @@ Validators::add('nonce', 'Something smells fishy',
 			throw new Exception('Attemping to create nonce outside of Wordpress context');
 		}
 		return wp_verify_nonce($value);
+	}
+);
+
+//Validators for files
+Validators::add('file', 'Please use .doc, .docx, or .pdf files only',
+	function( $file, $args ) {
+		//checkout early if no file was added.
+		//Required files must therefore be checked with the required field first.
+		if ( empty($file['name']) ) return TRUE;
+		$accepted = array(
+			'application/pdf',
+			'application/x-pdf',
+			'application/msword',
+			'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+		);
+		if ( ! in_array($file['type'], $accepted) ) {
+			return FALSE;
+		}
+		return TRUE;
 	}
 );
