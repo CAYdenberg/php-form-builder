@@ -359,4 +359,8 @@ class Field extends BaseClass {
 		return ($this->value ?: NULL);
 	}
 
+	public function get_label() {
+		return $this->label;
+	}
+
 }

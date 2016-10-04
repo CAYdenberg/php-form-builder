@@ -241,4 +241,12 @@ class PhpFormBuilder extends BaseClass {
 		return $values;
 	}
 
+	public function stringify() {
+		$output = '';
+		foreach ($this->inputs as $input) {
+			$output .= $input->get_label() . ': ' . $input->get_value() . '\r\n';
+		}
+		return $output;
+	}
+
 }
