@@ -1,4 +1,6 @@
-<?php namespace PhpFormBuilder;
+<?php
+
+namespace PhpFormBuilder;
 
 class PhpFormBuilder extends BaseClass {
 
